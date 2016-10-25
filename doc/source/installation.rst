@@ -2,11 +2,11 @@
 Installation
 ============
 
-At the command line::
+Installation of latest dev version from the source code::
 
-    $ pip install bridge_common
-
-Or, if you have virtualenvwrapper installed::
-
+    $ git clone https://github.com/Tendrl/bridge_common.git
+    $ cd bridge_common
     $ mkvirtualenv bridge_common
-    $ pip install bridge_common
+    $ pip install .
+    $ cp etc/tendrl/tendrl.conf.sample /etc/tendrl/tendrl.conf  (Edit conf
+    file as required)
