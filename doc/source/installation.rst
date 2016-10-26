@@ -2,11 +2,35 @@
 Installation
 ============
 
-Installation of latest dev version from the source code::
+1. Clone latest dev version from the source code and install virtualenvwrapper_::
 
     $ git clone https://github.com/Tendrl/bridge_common.git
     $ cd bridge_common
+    $ pip install virtualenv virtualenvwrapper
+
+2. Modify $HOME/.bashrc::
+
+    -------------------------------------
+    export WORKON_HOME=$HOME/.virtualenvs
+    source /usr/bin/virtualenvwrapper.sh
+    -------------------------------------
+
+3. Install bridge_common from source::
+
     $ mkvirtualenv bridge_common
     $ pip install .
-    $ cp etc/tendrl/tendrl.conf.sample /etc/tendrl/tendrl.conf  (Edit conf
-    file as required)
+
+4. Create config file::
+
+    $ cp etc/tendrl/tendrl.conf.sample /etc/tendrl/tendrl.conf
+
+5. Edit config file ``/etc/tendrl/tendrl.conf`` as required
+
+    ---------------------------------------------------------------
+    # Central store etcd host/ip
+    etcd_connection = <IP of the node where etcd server is running>
+    ---------------------------------------------------------------
+
+6. Create log dir::
+
+    $ mkdir /var/log/tendrl
