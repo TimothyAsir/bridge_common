@@ -8,16 +8,17 @@ Tests for `validate_api` module.
 import os
 import sys
 
-sys.path.insert(0, '../../')
-from tendrl.common.definitions.validator import JobValidator
-from tendrl.common import util
+#sys.path.insert(0, '../')
+sys.path.append('../..')
+from bridge_common.definitions.validator import JobValidator
+from bridge_common import util
 
 
 def getSchemaFile(schemaName):
     localpath = os.path.dirname(__file__)
     path = os.path.join(localpath, "sds_state_" + schemaName + '.yaml')
     # return yaml.load(open(path))
-    return util.loadSchema(path)[1]
+    return util.loadSchema(path)
 
 
 class TestValidateJobApi(object):
@@ -28,7 +29,7 @@ class TestValidateJobApi(object):
             'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
             "sds_name": "gluster",
             "sds_version": "3.2.0",
-            "flow": "CreateGlusterVolume",
+            "flow": "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume",
             "status": "processing",
             "parameters": {
                 'volname': 'Volume1',
@@ -41,32 +42,41 @@ class TestValidateJobApi(object):
 
     def test_atom(self):
         sdsoper = JobValidator(getSchemaFile("gluster"))
-        status, error = sdsoper.checkAtom("volume.atoms.start")
-        assert error == "atom:start details not found for:volume"
+        status, error = sdsoper.checkAtom("volume.atoms.start", sdsoper.objects)
+        assert error == "object atom details not found for:volume"
         assert not status
 
     def test_flow(self):
         sdsoper = JobValidator(getSchemaFile("gluster"))
-        status, error = sdsoper.checkFlow("StopVolume")
-        assert error == "Flow: StopVolume not defined"
-        assert not status
+        jobFlow = "namespace.tendrl.gluster_bridge.gluster_integration.flows.StartVolume"
+        namespace = sdsoper.definitions[jobFlow.split("flows")[0].strip(".")]
+        flow_class_name = jobFlow.split("flows")[-1].strip(".")
+        flow = namespace['flows'].get(flow_class_name)
+        status, error = sdsoper.checkFlow(flow)
+        assert status == True
 
-    def test_getAtomsFromAtom(self):
-        sdsoper = JobValidator(getSchemaFile("gluster"))
-        flow = sdsoper.getAtomNamesFromFlow("CreateGlusterVolume")
-        assert flow[0] == "volume.atoms.create"
+        jobFlow = "namespace.tendrl.gluster_bridge.gluster_integration.flows.StopVolume"
+        namespace = sdsoper.definitions[jobFlow.split("flows")[0].strip(".")]
+        flow_class_name = jobFlow.split("flows")[-1].strip(".")
+        flow = namespace['flows'].get(flow_class_name)
+        assert flow == None
 
-    def test_flowAttrs(self):
+    def test_getFlowParm(self):
         sdsoper = JobValidator(getSchemaFile("gluster"))
-        assert type(sdsoper.getFlowParms(
-            "CreateGlusterVolume")) == type(tuple(""))
+        jobFlow = "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume"
+        namespace = sdsoper.definitions[jobFlow.split("flows")[0].strip(".")]
+        flow_class_name = jobFlow.split("flows")[-1].strip(".")
+        flow = namespace['flows'].get(flow_class_name)
+        reqParm, optParm = sdsoper.getFlowParms(flow)
+        print reqParm, optParm
+        assert set(reqParm) ==  set(['Volume.volname', 'Volume.brickdetails'])
 
     def test_checkJobRequiredAttr(self):
         glusterApiJob = {
             'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
             "sds_name": "gluster",
             "sds_version": "3.2.0",
-            "flow": "CreateGlusterVolume",
+            "flow": "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume",
             "status": "processing",
             "parameters": {
                 'stripe_count': 10,
@@ -82,7 +92,7 @@ class TestValidateJobApi(object):
             'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
             "sds_name": "gluster",
             "sds_version": "3.2.0",
-            "flow": "CreateGlusterVolume",
+            "flow": "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume",
             "status": "processing",
             "parameters": {
                 'volname': 'Volume1',
@@ -113,19 +123,13 @@ class TestValidateJobApi(object):
         assert error == msg
         assert not status
 
-        # test with an unknown flow which is not defined
-        glusterApiJob['flow'] = 'blabla'
-        status, error = sdsoper.validateApi(glusterApiJob)
-        assert error == "Flow: blabla not defined"
-        assert not status
-
     def test_apijob_without_required_arguments(self):
         # Volume name not provided
         glusterApiJob = {
             'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
             "sds_name": "gluster",
             "sds_version": "3.2.0",
-            "flow": "CreateGlusterVolume",
+            "flow": "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume",
             "status": "processing",
             "parameters": {
                 'stripe_count': 10,
@@ -148,8 +152,8 @@ class TestValidateJobApi(object):
             'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
             "sds_name": "gluster",
             "sds_version": "3.2.0",
-            "flow": "CreateGlusterVolume",
-            "status": "processing",
+            "flow": "namespace.tendrl.gluster_bridge.gluster_integration.flows.CreateGlusterVolume",
+               "status": "processing",
             "parameters": {
                 'myvolumename': 'testing',
                 'volname': "test",
@@ -167,20 +171,17 @@ class TestValidateJobApi(object):
 
     def test_apijob_missing_argument(self):
         nodeApiJob = {
-            'cluster_id': "49fa2adde8a6e98591f0f5cb4bc5f44d",
-            "node_name": "fqdn",
-            "node_version": "3.2.0",
-            "flow": "PackageInstall",
+            "cluster_id": "bc35fde8-528b-4908-8d52-50d8bf964dd4",
+            "node_uuid": "node_uuid",
+            "flow": "namespace.tendrl.node_agent.gluster_integration.flows.ImportCluster",
             "status": "processing",
-            "parameters": {'name': 'abc',
-                           'list': ["wget", "rpm-build"],
-                           'conf_file': "/etc/abc.conf",
-                           'state': True,
-                           'enablerepo': ["a1", "a2", "a3"],
-                           'disablerepo': []},
+            "parameters": {
+                'sds_version': "3.0",
+                'sds_name': "node",
+                'Node': [{'fqdn': "abc.12.com", 'cmd_str': 'install'},
+                         {'fqdn': "xyz.com", 'cmd_str': 'execute'}]
+            }
         }
         sdsoper = JobValidator(getSchemaFile("node"))
         status, error = sdsoper.validateApi(nodeApiJob)
-        assert error == "Input argument(s) not defined " + "\
-in yaml file: ['state']"
-        assert not status
+        assert status == True

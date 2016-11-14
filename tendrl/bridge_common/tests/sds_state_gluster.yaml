@@ -1,13 +1,7 @@
 ---
-tendrl_schema_version: 0.1
-valid_objects:
-- tendrl_context
-- volume
-- brick
-- peer
-
-object_details:
-  tendrl_context:
+namespace.tendrl.gluster_bridge:
+ objects:
+  Tendrl_context:
     enabled: true
     attrs:
       cluster_id: 
@@ -19,7 +13,7 @@ object_details:
       sds_version: 
         help: "Version of the Tendrl managed sds, eg: '3.2.1'"
         type: String
-  volume:
+  Volume:
     enabled: true
     attrs:
       volname:
@@ -47,7 +41,7 @@ object_details:
         type: String
         help: "Transport type for volume"
       brickdetails:
-        type: brick[]
+        type: Brick[]
         help: "List of bricks for volume"
       force:
         type: Boolean
@@ -58,7 +52,7 @@ object_details:
           enabled: True
           uuid: "242f6190-9b37-11e6-950d-a24fc0d9649c"
           flows: ["CreateVolume"]
-          run: "tendrl.gluster_bridge.atoms.volume.create.Create"
+          run: "tendrl.gluster_bridge.flows.Create"
           type: "create"
           pre_run:
             - "tendrl.gluster_bridge.atoms.volume.validations.volume_not_exists"
@@ -72,17 +66,17 @@ object_details:
                 required: True
           inputs:
             mandatory:
-              - volume.volname
-              - volume.brickdetails
+              - Volume.volname
+              - Volume.brickdetails
             optional:
-              - volume.stripe_count
-              - volume.replica_count
-              - volume.arbiter_count
-              - volume.disperse_count
-              - volume.disperse_data_count
-              - volume.redundancy_count
-              - volume.transport
-              - volume.force
+              - Volume.stripe_count
+              - Volume.replica_count
+              - Volume.arbiter_count
+              - Volume.disperse_count
+              - Volume.disperse_data_count
+              - Volume.redundancy_count
+              - Volume.transport
+              - Volume.force
           version: "0.1.0"
         delete:
           enabled: True
@@ -94,7 +88,7 @@ object_details:
           uuid: "242f6190-9b37-11e6-950d-a24fc0d9649c"
           run: "tendrl.gluster_bridge.atoms.volume.create.Create"
           type: "create"
-  brick:
+  Brick:
     enabled: True
     attrs:
       brickdetails:
@@ -103,14 +97,15 @@ object_details:
       volname:
         type: String
         help: "Gluster volume name"
-flows:
+namespace.tendrl.gluster_bridge.gluster_integration:
+ flows:
   CreateGlusterVolume:
     enabled: True
     tendrl_context: "$cluster.id"
     uuid: "1951e821-7aa9-4a91-8183-e73bc8275b8e"
     description: "Create Volume with pre-existing bricks"
     atoms:
-      - volume.atoms.create
+      - tendrl.gluster_bridge.objects.Volume.atoms.create
     pre_run : []
     post_run: []
     run: "tendrl.gluster_bridge.flows.create_volume.CreateVolume"
@@ -121,17 +116,17 @@ flows:
           required: True
     inputs:
       mandatory:
-        - volume.volname
-        - volume.brickdetails
+        - Volume.volname
+        - Volume.brickdetails
       optional:
-        - volume.stripe_count
-        - volume.replica_count
-        - volume.arbiter_count
-        - volume.disperse_count
-        - volume.disperse_data_count
-        - volume.redundancy_count
-        - volume.transport
-        - volume.force
+        - Volume.stripe_count
+        - Volume.replica_count
+        - Volume.arbiter_count
+        - Volume.disperse_count
+        - Volume.disperse_data_count
+        - Volume.redundancy_count
+        - Volume.transport
+        - Volume.force
     version: "0.1.0"
   StartVolume:
     enabled: True
@@ -149,6 +144,19 @@ flows:
           required: True
     inputs:
       mandatory:
-        - volume.volname
+        - Volume.volname
       optional: ~
     version: "0.1.0"
+
+ objects:
+   Config:
+      atoms:
+         generate:
+            enabled: true
+         inputs:
+            mandatory:
+               - Config.abc
+      attrs:
+          abc:
+            type: String
+tendrl_schema_version: 0.3

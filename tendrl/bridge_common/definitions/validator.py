@@ -198,7 +198,9 @@ class JobValidator(object):
     def checkJobRequiredParm(self, gvnParm, reqParm):
         # gvnParm is the list of given parameters for a job request
         # reqParm is the required parms for the job mentioned in yaml
-        reqParm = [p.split(".")[-1] for p in reqParm]
+        # '[]' at the end of param is removed for better comparison if any
+        reqParm = [p.split('[]')[0].split('.')[-1] for p in reqParm]
+        gvnParm = [g.split('[]')[0] for g in gvnParm]
         missingInputParm = set(reqParm).difference(set(gvnParm))
         if missingInputParm != set():
             return (False,
@@ -207,7 +209,8 @@ class JobValidator(object):
 
     def checkJobParmDefined(self, gvnParm, docParm):
         # checking whether given arguments are defined in the yaml file
-        docParm = [p.split(".")[-1] for p in docParm]
+        docParm = [p.split('[]')[0].split(".")[-1] for p in docParm]
+        gvnParm = [g.split('[]')[0] for g in gvnParm]
         missingConfigParm = set(gvnParm).difference(set(docParm))
         if missingConfigParm != set():
             return (False, "Input argument(s) not defined in yaml file: %s" % (
@@ -228,12 +231,15 @@ class JobValidator(object):
             # Some arguments does not required any particular type.
             # Contine validating next parm if the type of the
             # inputparm not defined in yaml.
-            obj_name, iParm = parm.split(".")
+            if '.' in parm:
+                obj_name, iParm = parm.split(".")
+                parms = objects[obj_name]['attrs']
+                if iParm not in parms:
+                    continue
+                expectedType = parms[iParm].get('type')
+            else:
+                expectedType = obj_name = iParm = parm
 
-            parms = objects[obj_name]['attrs']
-            if iParm not in parms:
-                continue
-            expectedType = parms[iParm].get('type')
             # A) Check whether given value type is custom type
             if expectedType not in PRIMITIVE_TYPES.keys():
                 status = self._checkCustomType(expectedType, iParm, val,
@@ -276,18 +282,31 @@ class JobValidator(object):
     def _checkCustomType(self, customType, inputParm, inputVal, objects):
         def _check(inputVal, cType=customType):
             # check whether the custom defined type is decleared!
-            typeDef = objects.get(cType.lower())
+            typeDef = objects.get(cType)
             if not typeDef:
                 return (False, "yaml custom type: '%s' details not found" % (
                     cType))
 
             # check whether the item(s) type is valid
             for item in inputVal:
-                itemType = typeDef['attrs'].get(inputParm, {}).get('type')
-                if not PRIMITIVE_TYPES[itemType](item):
-                    return (False, "Invalid parameter type: "
-                            + "%s. Expected value type is: %s" % (
-                                item, itemType))
+                # given values are in dictonary of dictonary
+                if isinstance(item, dict):
+                    iObj = {}
+                    # sub item parms are not necessary to have atoms.
+                    # here we re adding the object name directly if
+                    # optional and mandatory parm not specified for sub items.
+                    for k, v in item.items():
+                        iObj[cType + "." + k] = v
+                    status = self.checkInputType(iObj, objects)
+                    if not status[0]:
+                        return status
+                else:
+                    # given values are direct
+                    itemType = typeDef['attrs'].get(inputParm, {}).get('type')
+                    if not PRIMITIVE_TYPES[itemType](item):
+                        return (False, "Invalid parameter type: "
+                                + "%s. Expected value type is: %s" % (
+                                    item, itemType))
             return (True, "")
 
         # customType is an array
@@ -369,3 +388,41 @@ class JobValidator(object):
                 return status
         # all check passed successfully!
         return(True, '')
+
+
+import os
+import yaml
+
+
+def loadSchema(schemaFile):
+    try:
+        # Check api operation schema file exists
+        if not os.path.isfile(schemaFile):
+            return (False,
+                    "Error: Schema file '" + schemaFile + "' does not exists.")
+
+        # load api operation schema file and return
+        try:
+            code = open(schemaFile)
+        except IOError as exc:
+            return (False,
+                    "Error loading schema file '" + schemaFile + "': " + exc)
+
+        # Parse schema file
+        try:
+            config = yaml.load(code)
+        except yaml.YAMLError as exc:
+            error_pos = ""
+            if hasattr(exc, 'problem_mark'):
+                error_pos = " at position: (%s:%s)" % (
+                    exc.problem_mark.line + 1,
+                    exc.problem_mark.column + 1)
+            msg = "Error loading schema file '" + schemaFile + "'" + error_pos \
+                + ": content format error: Failed to parse yaml format"
+            return False, msg
+
+    except Exception as e:
+        return (False, "Error loading api operation schema file '%s': %s" % (
+            schemaFile, str(e)))
+
+    return config
